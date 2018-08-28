@@ -316,6 +316,7 @@ static const struct LongShort aliases[]= {
   {"Y",  "speed-limit",              ARG_STRING},
   {"y",  "speed-time",               ARG_STRING},
   {"z",  "time-cond",                ARG_STRING},
+  {"Z",  "parallel",                 ARG_BOOL},
   {"#",  "progress-bar",             ARG_BOOL},
   {":",  "next",                     ARG_NONE},
 };
@@ -1351,7 +1352,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
           size = 0;
         }
         else {
-          char *enc = curl_easy_escape(config->easy, postdata, (int)size);
+          char *enc = curl_easy_escape(NULL, postdata, (int)size);
           Curl_safefree(postdata); /* no matter if it worked or not */
           if(enc) {
             /* now make a string with the name from above and append the
@@ -2122,6 +2123,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       if(!config->low_speed_time)
         config->low_speed_time = 30;
       break;
+    case 'Z': /* --parallel */
+      config->parallel = toggle;
+      break;
     case 'z': /* time condition coming up */
       switch(*nextarg) {
       case '+':
@@ -2206,9 +2210,6 @@ ParameterError parse_args(struct GlobalConfig *config, int argc,
             if(operation->next) {
               /* Initialise the newly created config */
               config_init(operation->next);
-
-              /* Copy the easy handle */
-              operation->next->easy = config->easy;
 
               /* Set the global config pointer */
               operation->next->global = config;
