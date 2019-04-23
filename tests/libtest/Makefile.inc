@@ -32,7 +32,7 @@ noinst_PROGRAMS = chkhostname libauthretry libntlmconnect                \
  lib1540 lib1541 \
  lib1550 lib1551 lib1552 lib1553 lib1554 lib1555 lib1556 lib1557 \
  lib1558 \
- lib1560 \
+ lib1560 lib1563 \
  lib1591 lib1592 \
  lib1900 lib1905 lib1906 \
  lib2033
@@ -527,6 +527,9 @@ lib1558_LDADD = $(TESTUTIL_LIBS)
 
 lib1560_SOURCES = lib1560.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
 lib1560_LDADD = $(TESTUTIL_LIBS)
+
+lib1563_SOURCES = lib1563.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
+lib1563_LDADD = $(TESTUTIL_LIBS)
 
 lib1591_SOURCES = lib1591.c $(SUPPORTFILES) $(TESTUTIL) $(WARNLESS)
 lib1591_LDADD = $(TESTUTIL_LIBS)

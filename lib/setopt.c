@@ -462,8 +462,15 @@ static CURLcode vsetopt(struct Curl_easy *data, CURLoption option,
     /*
      * Follow Location: header hints on a HTTP-server.
      */
-    data->set.http_follow_location = (0 != va_arg(param, long)) ? TRUE : FALSE;
-    break;
+  {
+    bool clear;
+    uarg = va_arg(param, unsigned long);
+    data->set.http_follow_location =
+      (uarg & (CURLFOLLOW_ENABLE|CURLFOLLOW_IGNORE_CUSTOM)) ? TRUE : FALSE;
+    clear = (uarg & CURLFOLLOW_IGNORE_CUSTOM) ? TRUE : FALSE;
+    data->set.redirect_clears_method = clear;
+  }
+  break;
 
   case CURLOPT_UNRESTRICTED_AUTH:
     /*
