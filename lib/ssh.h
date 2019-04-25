@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -24,13 +24,20 @@
 
 #include "curl_setup.h"
 
+#if defined(USE_LIBSSH2) || defined(USE_LIBSSH) || defined(USE_WOLFSSH)
+#define USE_SSH
+#endif
+
 #if defined(HAVE_LIBSSH2_H)
 #include <libssh2.h>
 #include <libssh2_sftp.h>
 #elif defined(HAVE_LIBSSH_LIBSSH_H)
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
-#endif /* HAVE_LIBSSH2_H */
+#elif defined(USE_WOLFSSH)
+#include <wolfssh/ssh.h>
+#include "wolfssh.h"
+#endif
 
 /****************************************************************************
  * SSH unique setup
@@ -188,6 +195,9 @@ struct ssh_conn {
 #ifdef HAVE_LIBSSH2_KNOWNHOST_API
   LIBSSH2_KNOWNHOSTS *kh;
 #endif
+#elif defined(USE_WOLFSSH)
+  WOLFSSH *ssh_session;
+  WOLFSSH_CTX *ctx;
 #endif /* USE_LIBSSH */
 };
 

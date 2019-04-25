@@ -182,6 +182,11 @@ char *curl_version(void)
   left -= len;
   ptr += len;
 #endif
+#ifdef USE_WOLFSSH
+  len = msnprintf(ptr, left, " wolfssh/%s", LIBWOLFSSH_VERSION_STRING);
+  left -= len;
+  ptr += len;
+#endif
 #ifdef USE_NGHTTP2
   len = Curl_http2_ver(ptr, left);
   left -= len;
@@ -274,7 +279,7 @@ static const char * const protocols[] = {
 #ifndef CURL_DISABLE_RTSP
   "rtsp",
 #endif
-#if defined(USE_LIBSSH) || defined(USE_LIBSSH2)
+#if defined(USE_LIBSSH) || defined(USE_LIBSSH2) || defined(USE_WOLFSSH)
   "scp",
   "sftp",
 #endif
