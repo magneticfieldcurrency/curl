@@ -274,9 +274,9 @@ bool progress_meter(struct GlobalConfig *global,
             "%-3s " /* percent uploaded */
             "%s " /* Dled */
             "%s " /* Uled */
-            "%5d " /* Xfers */
-            "%5d " /* Live */
-            "%5d " /* Queued */
+            "%5" CURL_FORMAT_CURL_OFF_T " " /* Xfers */
+            "%5" CURL_FORMAT_CURL_OFF_T " " /* Live */
+            "%5" CURL_FORMAT_CURL_OFF_T " " /* Queued */
             "%s "  /* Total time */
             "%s "  /* Current time */
             "%s "  /* Time left */
