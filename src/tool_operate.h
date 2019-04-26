@@ -50,6 +50,8 @@ struct per_transfer {
   struct HdrCbData hdrcbdata;
   char errorbuffer[CURL_ERROR_SIZE];
 
+  bool added; /* set TRUE when added to the multi handle */
+
   /* for parallel progress bar */
   curl_off_t dltotal;
   curl_off_t dlnow;

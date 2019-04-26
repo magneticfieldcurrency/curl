@@ -1932,23 +1932,20 @@ static void wait_ms(int ms)
 #endif
 }
 
-static CURLcode parallel_transfers(struct GlobalConfig *global,
-                                   struct OperationConfig *config,
-                                   CURLSH *share)
+#define N_PARALLEL 20
+static unsigned int all_added; /* number of easy handles currently added */
+
+static int add_parallel_transfers(struct GlobalConfig *global,
+                                  CURLM *multi)
 {
   struct per_transfer *per;
-  CURLM *multi;
-  bool done = FALSE;
-  CURLMcode mcode = CURLM_OK;
-  CURLcode result = CURLE_OK;
-  int still_running = 1;
-  struct timeval start = tvnow();
+  CURLcode result;
+  CURLMcode mcode;
+  for(per = transfers; per && (all_added < N_PARALLEL); per = per->next) {
+    if(per->added)
+      /* already added */
+      continue;
 
-  multi = curl_multi_init();
-  if(!multi)
-    return CURLE_OUT_OF_MEMORY;
-
-  for(per = transfers; per; per = per->next) {
     result = pre_transfer(global, per);
     if(result)
       break;
@@ -1960,7 +1957,30 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
     mcode = curl_multi_add_handle(multi, per->curl);
     if(mcode)
       return CURLE_OUT_OF_MEMORY;
+    per->added = TRUE;
+    all_added++;
   }
+  return CURLE_OK;
+}
+
+static CURLcode parallel_transfers(struct GlobalConfig *global,
+                                   struct OperationConfig *config,
+                                   CURLSH *share)
+{
+  CURLM *multi;
+  bool done = FALSE;
+  CURLMcode mcode = CURLM_OK;
+  CURLcode result = CURLE_OK;
+  int still_running = 1;
+  struct timeval start = tvnow();
+
+  multi = curl_multi_init();
+  if(!multi)
+    return CURLE_OUT_OF_MEMORY;
+
+  result = add_parallel_transfers(global, multi);
+  if(result)
+    return result;
 
   while(!done && !mcode && still_running) {
     int numfds;
@@ -1990,6 +2010,7 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
     if(!mcode) {
       int rc;
       CURLMsg *msg;
+      bool removed = FALSE;
       do {
         msg = curl_multi_info_read(multi, &rc);
         if(msg) {
@@ -2004,9 +2025,14 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
           if(retry)
             continue;
           progress_finalize(ended); /* before it goes away */
+          all_added--; /* one fewer added */
+          removed = TRUE;
           (void)del_transfer(ended);
         }
       } while(msg);
+      if(removed)
+        /* one or more transfers completed, add more! */
+        (void)add_parallel_transfers(global, multi);
     }
   }
 

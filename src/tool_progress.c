@@ -207,7 +207,10 @@ bool progress_meter(struct GlobalConfig *global,
         all_ultotal += per->ultotal;
         per->ultotal_added = TRUE;
       }
-      all_running++; /* for the moment, there's no queue */
+      if(!per->added)
+        all_queued++;
+      else
+        all_running++;
     }
     if(dlknown && all_dltotal)
       /* TODO: handle integer overflow */
