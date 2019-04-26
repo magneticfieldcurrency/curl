@@ -275,6 +275,8 @@ static const struct helptxt helptext[] = {
    "Write to file instead of stdout"},
   {"-Z, --parallel",
    "Perform transfers in parallel"},
+  {"    --parallel-max",
+   "Maximum concurrency for parallel transfers"},
   {"    --pass <phrase>",
    "Pass phrase for the private key"},
   {"    --path-as-is",
