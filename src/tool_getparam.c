@@ -40,6 +40,7 @@
 #include "tool_msgs.h"
 #include "tool_paramhlp.h"
 #include "tool_parsecfg.h"
+#include "tool_main.h"
 
 #include "memdebug.h" /* keep this as LAST include */
 
@@ -317,6 +318,7 @@ static const struct LongShort aliases[]= {
   {"y",  "speed-time",               ARG_STRING},
   {"z",  "time-cond",                ARG_STRING},
   {"Z",  "parallel",                 ARG_BOOL},
+  {"Zb", "parallel-max",             ARG_STRING},
   {"#",  "progress-bar",             ARG_BOOL},
   {":",  "next",                     ARG_NONE},
 };
@@ -2123,8 +2125,20 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       if(!config->low_speed_time)
         config->low_speed_time = 30;
       break;
-    case 'Z': /* --parallel */
-      config->parallel = toggle;
+    case 'Z':
+      switch(subletter) {
+      case '\0':  /* --parallel */
+        config->parallel = toggle;
+        break;
+      case 'b':   /* --parallel-max */
+        err = str2unum(&config->parallel_max, nextarg);
+        if(err)
+          return err;
+        if((config->parallel_max > MAX_PARALLEL) ||
+           (config->parallel_max < 1))
+          config->parallel_max = PARALLEL_DEFAULT;
+        break;
+      }
       break;
     case 'z': /* time condition coming up */
       switch(*nextarg) {

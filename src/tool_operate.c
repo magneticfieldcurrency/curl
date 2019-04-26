@@ -1936,12 +1936,14 @@ static void wait_ms(int ms)
 static unsigned int all_added; /* number of easy handles currently added */
 
 static int add_parallel_transfers(struct GlobalConfig *global,
+                                  struct OperationConfig *config,
                                   CURLM *multi)
 {
   struct per_transfer *per;
   CURLcode result;
   CURLMcode mcode;
-  for(per = transfers; per && (all_added < N_PARALLEL); per = per->next) {
+  for(per = transfers; per && (all_added < config->parallel_max);
+      per = per->next) {
     if(per->added)
       /* already added */
       continue;
@@ -1978,7 +1980,7 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
   if(!multi)
     return CURLE_OUT_OF_MEMORY;
 
-  result = add_parallel_transfers(global, multi);
+  result = add_parallel_transfers(global, config, multi);
   if(result)
     return result;
 
@@ -2032,7 +2034,7 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
       } while(msg);
       if(removed)
         /* one or more transfers completed, add more! */
-        (void)add_parallel_transfers(global, multi);
+        (void)add_parallel_transfers(global, config, multi);
     }
   }
 
