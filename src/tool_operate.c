@@ -2058,7 +2058,7 @@ static CURLcode serial_transfers(struct GlobalConfig *global,
                                  CURLSH *share)
 {
   CURLcode returncode = CURLE_OK;
-  CURLcode result;
+  CURLcode result = CURLE_OK;
   struct per_transfer *per;
   for(per = transfers; per;) {
     bool retry;
