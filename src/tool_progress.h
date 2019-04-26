@@ -32,5 +32,8 @@ int xferinfo_cb(void *clientp,
 bool progress_meter(struct GlobalConfig *global,
                     struct timeval *start,
                     bool final);
+void progress_finalize(struct per_transfer *per);
+
+extern curl_off_t all_xfers;   /* total number */
 
 #endif /* HEADER_CURL_TOOL_PROGRESS_H */

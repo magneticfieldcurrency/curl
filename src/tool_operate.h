@@ -51,8 +51,12 @@ struct per_transfer {
   char errorbuffer[CURL_ERROR_SIZE];
 
   /* for parallel progress bar */
-  curl_off_t prev_dlnow;
-  curl_off_t prev_ulnow;
+  curl_off_t dltotal;
+  curl_off_t dlnow;
+  curl_off_t ultotal;
+  curl_off_t ulnow;
+  bool dltotal_added; /* if the total has been added from this */
+  bool ultotal_added;
 
   /* NULL or malloced */
   char *separator_err;
@@ -61,5 +65,7 @@ struct per_transfer {
 };
 
 CURLcode operate(struct GlobalConfig *config, int argc, argv_item_t argv[]);
+
+struct per_transfer *transfers; /* first node */
 
 #endif /* HEADER_CURL_TOOL_OPERATE_H */

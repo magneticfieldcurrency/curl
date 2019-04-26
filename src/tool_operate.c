@@ -194,7 +194,7 @@ static curl_off_t VmsSpecialSize(const char *name,
 
 #define BUFFER_SIZE (100*1024)
 
-static struct per_transfer *transfers; /* first node */
+struct per_transfer *transfers; /* first node */
 static struct per_transfer *transfersl; /* last node */
 
 static CURLcode add_transfer(struct per_transfer **per)
@@ -215,6 +215,7 @@ static CURLcode add_transfer(struct per_transfer **per)
     transfersl = p;
   }
   *per = p;
+  all_xfers++; /* count total number of transfers added */
   return CURLE_OK;
 }
 
@@ -1941,7 +1942,7 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
   CURLMcode mcode = CURLM_OK;
   CURLcode result = CURLE_OK;
   int still_running = 1;
-  struct timeval stamp = tvnow();
+  struct timeval start = tvnow();
 
   multi = curl_multi_init();
   if(!multi)
@@ -1984,8 +1985,7 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
       mcode = curl_multi_perform(multi, &still_running);
     }
 
-    if(progress_meter(global, &stamp, FALSE))
-      stamp = tvnow();
+    progress_meter(global, &start, FALSE);
 
     if(!mcode) {
       int rc;
@@ -2003,13 +2003,14 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
           result = post_transfer(global, config, share, ended, result, &retry);
           if(retry)
             continue;
+          progress_finalize(ended); /* before it goes away */
           (void)del_transfer(ended);
         }
       } while(msg);
     }
   }
 
-  (void)progress_meter(global, &stamp, TRUE);
+  (void)progress_meter(global, &start, TRUE);
 
   /* Make sure to return some kind of error if there was a multi problem */
   if(mcode) {

@@ -88,9 +88,6 @@ static char *max5data(curl_off_t bytes, char *max5)
   return max5;
 }
 
-static curl_off_t all_dlnow;
-static curl_off_t all_ulnow;
-
 int xferinfo_cb(void *clientp,
                 curl_off_t dltotal,
                 curl_off_t dlnow,
@@ -98,34 +95,211 @@ int xferinfo_cb(void *clientp,
                 curl_off_t ulnow)
 {
   struct per_transfer *per = clientp;
-  (void)dltotal;
-  (void)ultotal;
-
-  all_dlnow += dlnow;
-  all_dlnow -= per->prev_dlnow;
-  per->prev_dlnow = dlnow;
-
-  all_ulnow += ulnow;
-  all_ulnow -= per->prev_ulnow;
-  per->prev_ulnow = ulnow;
-
+  per->dltotal = dltotal;
+  per->dlnow = dlnow;
+  per->ultotal = ultotal;
+  per->ulnow = ulnow;
   return 0;
 }
 
+/* Provide a string that is 2 + 1 + 2 + 1 + 2 = 8 letters long (plus the zero
+   byte) */
+static void time2str(char *r, curl_off_t seconds)
+{
+  curl_off_t h;
+  if(seconds <= 0) {
+    strcpy(r, "--:--:--");
+    return;
+  }
+  h = seconds / CURL_OFF_T_C(3600);
+  if(h <= CURL_OFF_T_C(99)) {
+    curl_off_t m = (seconds - (h*CURL_OFF_T_C(3600))) / CURL_OFF_T_C(60);
+    curl_off_t s = (seconds - (h*CURL_OFF_T_C(3600))) - (m*CURL_OFF_T_C(60));
+    msnprintf(r, 9, "%2" CURL_FORMAT_CURL_OFF_T ":%02" CURL_FORMAT_CURL_OFF_T
+              ":%02" CURL_FORMAT_CURL_OFF_T, h, m, s);
+  }
+  else {
+    /* this equals to more than 99 hours, switch to a more suitable output
+       format to fit within the limits. */
+    curl_off_t d = seconds / CURL_OFF_T_C(86400);
+    h = (seconds - (d*CURL_OFF_T_C(86400))) / CURL_OFF_T_C(3600);
+    if(d <= CURL_OFF_T_C(999))
+      msnprintf(r, 9, "%3" CURL_FORMAT_CURL_OFF_T
+                "d %02" CURL_FORMAT_CURL_OFF_T "h", d, h);
+    else
+      msnprintf(r, 9, "%7" CURL_FORMAT_CURL_OFF_T "d", d);
+  }
+}
+
+static curl_off_t all_dltotal = 0;
+static curl_off_t all_ultotal = 0;
+static curl_off_t all_dlalready = 0;
+static curl_off_t all_ulalready = 0;
+
+curl_off_t all_xfers = 0;   /* current total */
+
+struct speedcount {
+  curl_off_t dl;
+  curl_off_t ul;
+  struct timeval stamp;
+};
+#define SPEEDCNT 10
+unsigned int speedindex;
+bool indexwrapped;
+struct speedcount speedstore[SPEEDCNT];
+
+/*
+  |DL% UL%  Dled  Uled  Xfers  Live   Qd Total     Current  Left    Speed
+  |  6 --   9.9G     0     2     2     0  0:00:40  0:00:02  0:00:37 4087M
+*/
 bool progress_meter(struct GlobalConfig *global,
                     struct timeval *start,
                     bool final)
 {
+  static struct timeval stamp;
+  static bool header = FALSE;
   struct timeval now = tvnow();
-  char buffer[6];
+  long diff = tvdiff(now, stamp);
 
-  if(final || (tvdiff(now, *start) >= 1000)) {
+  if(!header) {
+    header = TRUE;
+    fputs("DL% UL%  Dled  Uled  Xfers  Live   Qd "
+          "Total     Current  Left    Speed\n",
+          global->errors);
+  }
+  if(final || (diff > 500)) {
+    char time_left[10];
+    char time_total[10];
+    char time_spent[10];
+    char buffer[3][6];
+    curl_off_t spent = tvdiff(now, *start)/1000;
+    char dlpercen[4]="--";
+    char ulpercen[4]="--";
+    struct per_transfer *per;
+    curl_off_t all_dlnow = 0;
+    curl_off_t all_ulnow = 0;
+    bool dlknown = TRUE;
+    bool ulknown = TRUE;
+    curl_off_t all_running = 0; /* in progress */
+    curl_off_t all_queued = 0;  /* pending */
+    curl_off_t speed = 0;
+    unsigned int i;
+    stamp = now;
+
+    /* first add the amounts of the already completed transfers */
+    all_dlnow += all_dlalready;
+    all_ulnow += all_ulalready;
+
+    for(per = transfers; per; per = per->next) {
+      all_dlnow += per->dlnow;
+      all_ulnow += per->ulnow;
+      if(!per->dltotal)
+        dlknown = FALSE;
+      else if(!per->dltotal_added) {
+        /* only add this amount once */
+        all_dltotal += per->dltotal;
+        per->dltotal_added = TRUE;
+      }
+      if(!per->ultotal)
+        ulknown = FALSE;
+      else if(!per->ultotal_added) {
+        /* only add this amount once */
+        all_ultotal += per->ultotal;
+        per->ultotal_added = TRUE;
+      }
+      all_running++; /* for the moment, there's no queue */
+    }
+    if(dlknown && all_dltotal)
+      /* TODO: handle integer overflow */
+      msnprintf(dlpercen, sizeof(dlpercen), "%3d",
+                all_dlnow * 100 / all_dltotal);
+    if(ulknown && all_ultotal)
+      /* TODO: handle integer overflow */
+      msnprintf(ulpercen, sizeof(ulpercen), "%3d",
+                all_ulnow * 100 / all_ultotal);
+
+    /* get the transfer speed, the higher of the two */
+
+    i = speedindex;
+    speedstore[i].dl = all_dlnow;
+    speedstore[i].ul = all_ulnow;
+    speedstore[i].stamp = now;
+    if(++speedindex > SPEEDCNT) {
+      indexwrapped = TRUE;
+      speedindex = 0;
+    }
+
+    {
+      long deltams;
+      curl_off_t dl;
+      curl_off_t ul;
+      curl_off_t dls;
+      curl_off_t uls;
+      if(indexwrapped) {
+        /* 'speedindex' is the oldest stored data */
+        deltams = tvdiff(now, speedstore[speedindex].stamp);
+        dl = all_dlnow - speedstore[speedindex].dl;
+        ul = all_ulnow - speedstore[speedindex].ul;
+      }
+      else {
+        /* since the beginning */
+        deltams = tvdiff(now, *start);
+        dl = all_dlnow;
+        ul = all_ulnow;
+      }
+      dls = (curl_off_t)((double)dl / ((double)deltams/1000.0));
+      uls = (curl_off_t)((double)ul / ((double)deltams/1000.0));
+      speed = dls > uls ? dls : uls;
+    }
+
+
+    if(dlknown && speed) {
+      curl_off_t est = all_dltotal / speed;
+      curl_off_t left = (all_dltotal - all_dlnow) / speed;
+      time2str(time_left, left);
+      time2str(time_total, est);
+    }
+    else {
+      time2str(time_left, 0);
+      time2str(time_total, 0);
+    }
+    time2str(time_spent, spent);
+
     fprintf(global->errors,
             "\r"
-            "%s%s", max5data(all_dlnow, buffer),
+            "%-3s " /* percent downloaded */
+            "%-3s " /* percent uploaded */
+            "%s " /* Dled */
+            "%s " /* Uled */
+            "%5d " /* Xfers */
+            "%5d " /* Live */
+            "%5d " /* Queued */
+            "%s "  /* Total time */
+            "%s "  /* Current time */
+            "%s "  /* Time left */
+            "%s "  /* Speed */
+            "%5s" /* final newline */,
+
+            dlpercen,  /* 3 letters */
+            ulpercen,  /* 3 letters */
+            max5data(all_dlnow, buffer[0]),
+            max5data(all_ulnow, buffer[1]),
+            all_xfers,
+            all_running,
+            all_queued,
+            time_total,
+            time_spent,
+            time_left,
+            max5data(speed, buffer[2]), /* speed */
             final ? "\n" :"");
     return TRUE;
   }
   return FALSE;
 }
 
+void progress_finalize(struct per_transfer *per)
+{
+  /* get the numbers before this transfer goes away */
+  all_dlalready += per->dlnow;
+  all_ulalready += per->ulnow;
+}
