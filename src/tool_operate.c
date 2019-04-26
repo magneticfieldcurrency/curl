@@ -2307,11 +2307,11 @@ CURLcode operate(struct GlobalConfig *config, int argc, argv_item_t argv[])
         curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_PSL);
 
         /* Get the required arguments for each operation */
-        while(!result && operation) {
+        do {
           result = get_args(operation, count++);
 
           operation = operation->next;
-        }
+        } while(!result && operation);
 
         /* Set the current operation pointer */
         config->current = config->first;
