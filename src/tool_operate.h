@@ -68,6 +68,6 @@ struct per_transfer {
 
 CURLcode operate(struct GlobalConfig *config, int argc, argv_item_t argv[]);
 
-struct per_transfer *transfers; /* first node */
+extern struct per_transfer *transfers; /* first node */
 
 #endif /* HEADER_CURL_TOOL_OPERATE_H */
