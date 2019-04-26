@@ -1914,9 +1914,21 @@ static CURLcode create_transfers(struct GlobalConfig *global,
   return result;
 }
 
+/* portable millisecond sleep */
 static void wait_ms(int ms)
 {
-  (void)ms;
+#if defined(MSDOS)
+  delay(ms);
+#elif defined(WIN32)
+  Sleep(ms);
+#elif defined(HAVE_USLEEP)
+  usleep(1000 * ms);
+#else
+  struct timeval pending_tv;
+  pending_tv.tv_sec = ms / 1000;
+  pending_tv.tv_usec = (ms % 1000) * 1000;
+  (void)select(0, NULL, NULL, NULL, &pending_tv);
+#endif
 }
 
 static CURLcode parallel_transfers(struct GlobalConfig *global,
