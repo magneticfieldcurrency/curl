@@ -2020,7 +2020,7 @@ static CURLcode parallel_transfers(struct GlobalConfig *global,
           struct per_transfer *ended;
           CURL *easy = msg->easy_handle;
           result = msg->data.result;
-          curl_easy_getinfo(easy, CURLINFO_PRIVATE, &ended);
+          curl_easy_getinfo(easy, CURLINFO_PRIVATE, (void **)&ended);
           curl_multi_remove_handle(multi, easy);
 
           result = post_transfer(global, config, share, ended, result, &retry);
