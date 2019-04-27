@@ -227,7 +227,7 @@ bool progress_meter(struct GlobalConfig *global,
     speedstore[i].dl = all_dlnow;
     speedstore[i].ul = all_ulnow;
     speedstore[i].stamp = now;
-    if(++speedindex > SPEEDCNT-1) {
+    if(++speedindex >= SPEEDCNT) {
       indexwrapped = TRUE;
       speedindex = 0;
     }
