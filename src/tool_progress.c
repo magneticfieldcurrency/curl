@@ -144,9 +144,9 @@ struct speedcount {
   struct timeval stamp;
 };
 #define SPEEDCNT 10
-unsigned int speedindex;
-bool indexwrapped;
-struct speedcount speedstore[SPEEDCNT];
+static unsigned int speedindex;
+static bool indexwrapped;
+static struct speedcount speedstore[SPEEDCNT];
 
 /*
   |DL% UL%  Dled  Uled  Xfers  Live   Qd Total     Current  Left    Speed
